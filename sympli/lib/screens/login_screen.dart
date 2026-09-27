@@ -205,19 +205,19 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 12),
 
-                  TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => setState(() {
-                            _isRegisterMode = !_isRegisterMode;
-                            _errorMessage = null;
-                          }),
-                    child: Text(
-                      _isRegisterMode
-                          ? 'Schon ein Konto? Anmelden'
-                          : 'Noch kein Konto? Registrieren',
-                    ),
-                  ),
+                  // TextButton(
+                  //   onPressed: _isLoading
+                  //       ? null
+                  //       : () => setState(() {
+                  //           _isRegisterMode = !_isRegisterMode;
+                  //           _errorMessage = null;
+                  //         }),
+                  //   child: Text(
+                  //     _isRegisterMode
+                  //         ? 'Schon ein Konto? Anmelden'
+                  //         : 'Noch kein Konto? Registrieren',
+                  //   ),
+                  // ),
                   const SizedBox(height: 24),
                 ],
               ),
