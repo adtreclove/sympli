@@ -8,6 +8,7 @@ import 'package:sympli/screens/course_screen.dart';
 import 'package:sympli/screens/entry_screen.dart';
 import 'package:sympli/screens/login_screen.dart';
 import 'package:sympli/screens/pattern_screen.dart';
+import 'package:sympli/screens/settings_screen.dart';
 import 'package:sympli/screens/today_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -54,6 +55,12 @@ final router = GoRouter(
           ],
         ),
       ],
+    ),
+
+    GoRoute(
+      path: '/settings',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (_, __) => const SettingsScreen(),
     ),
 
     // lies outside the app shell (own parentNavigatorKey)

@@ -6,23 +6,31 @@
 // statt bei jedem Tab-Wechsel neu gebaut zu werden.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sympli/controllers/history_controller.dart';
+import 'package:sympli/controllers/today_controller.dart';
 import 'package:sympli/helpers/app_theme.dart';
 
-class AppShell extends StatelessWidget {
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       extendBody: true,
       body: navigationShell,
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/eintrag'),
+        onPressed: () async {
+          await context.push('/entry');
+          // Sheet geschlossen (gespeichert oder abgebrochen) → Tag neu laden
+          ref.invalidate(todayEntriesProvider);
+          ref.invalidate(recentEntriesProvider);
+        },
         backgroundColor: AppColors.accent,
         foregroundColor: isDark ? AppColors.bgDark : Colors.white,
         elevation: 3,

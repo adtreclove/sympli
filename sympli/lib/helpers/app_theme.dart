@@ -31,6 +31,12 @@ class AppColors {
   static const mittag = accent;
   static const abend = violet;
   static const nacht = Color(0xFF33448F);
+
+  // Tagesabschnitte im Dark Mode (heller, damit sie auf Dunkel leuchten)
+  static const morgenDark = Color(0xFFF6B34E);
+  static const mittagDark = Color(0xFF2EC4B0);
+  static const abendDark = Color(0xFFA293F5);
+  static const nachtDark = Color(0xFF7D8DF0);
 }
 
 class AppTheme {

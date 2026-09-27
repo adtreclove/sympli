@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sympli/helpers/app_theme.dart';
 
@@ -18,6 +19,8 @@ class _Symptom {
 
 class _EntryScreenState extends State<EntryScreen> {
   final _noteController = TextEditingController();
+  final _customController = TextEditingController();
+  final _customFocus = FocusNode();
   final _supabase = Supabase.instance.client;
 
   DateTime _occurredAt = DateTime.now();
@@ -28,6 +31,9 @@ class _EntryScreenState extends State<EntryScreen> {
 
   List<_Symptom> _symptoms = [];
   bool _loadingSymptoms = true;
+
+  bool _addingCustom = false;
+  bool _savingCustom = false;
 
   static const _intensityLabels = [
     'leicht',
@@ -53,6 +59,8 @@ class _EntryScreenState extends State<EntryScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _customController.dispose();
+    _customFocus.dispose();
     super.dispose();
   }
 
@@ -78,6 +86,100 @@ class _EntryScreenState extends State<EntryScreen> {
         _loadingSymptoms = false;
       });
     }
+  }
+
+  void _startAddingCustom() {
+    setState(() {
+      _addingCustom = true;
+      _error = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _customFocus.requestFocus(),
+    );
+  }
+
+  void _cancelAddingCustom() {
+    _customController.clear();
+    setState(() => _addingCustom = false);
+  }
+
+  Future<void> _addCustomSymptom() async {
+    final name = _customController.text.trim();
+    if (name.isEmpty || _savingCustom) return;
+
+    // Gibt es das Symptom schon (egal ob Standard oder eigenes)? → auswählen.
+    final existing = _symptoms.where(
+      (s) => s.name.toLowerCase() == name.toLowerCase(),
+    );
+    if (existing.isNotEmpty) {
+      _customController.clear();
+      setState(() {
+        _selectedSymptomId = existing.first.id;
+        _addingCustom = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _savingCustom = true;
+      _error = null;
+    });
+
+    try {
+      final row = await _supabase
+          .from('symptoms')
+          .insert({
+            'name': name,
+            'is_default': false,
+            'user_id': _supabase.auth.currentUser!.id,
+          })
+          .select('id, name')
+          .single();
+
+      final symptom = _Symptom(row['id'] as String, row['name'] as String);
+      _customController.clear();
+      setState(() {
+        _symptoms = [..._symptoms, symptom];
+        _selectedSymptomId = symptom.id;
+        _addingCustom = false;
+        _savingCustom = false;
+      });
+    } catch (_) {
+      setState(() {
+        _error = 'Symptom konnte nicht angelegt werden.';
+        _savingCustom = false;
+      });
+    }
+  }
+
+  /// Genaue Uhrzeit wählen. Startet direkt im Eingabemodus (Tippen),
+  /// über das Uhr-Icon im Dialog kann man auf das Ziffernblatt wechseln.
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_occurredAt),
+      initialEntryMode: TimePickerEntryMode.input,
+      helpText: 'Uhrzeit eingeben',
+      cancelText: 'Abbrechen',
+      confirmText: 'Übernehmen',
+      hourLabelText: 'Stunde',
+      minuteLabelText: 'Minute',
+      errorInvalidText: 'Bitte eine gültige Uhrzeit eingeben',
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      _occurredAt = DateTime(
+        _occurredAt.year,
+        _occurredAt.month,
+        _occurredAt.day,
+        picked.hour,
+        picked.minute,
+      );
+    });
   }
 
   void _adjustMinutes(int delta) {
@@ -106,7 +208,8 @@ class _EntryScreenState extends State<EntryScreen> {
       await _supabase.from('entries').insert({
         'user_id': _supabase.auth.currentUser!.id,
         'symptom_id': _selectedSymptomId,
-        'occurred_at': _occurredAt.toIso8601String(),
+        // mit Zeitzone speichern, sonst landet 19:47 Ortszeit als 19:47 UTC
+        'occurred_at': _occurredAt.toUtc().toIso8601String(),
         'intensity': _intensity,
         'note': _noteController.text.trim().isEmpty
             ? null
@@ -201,6 +304,7 @@ class _EntryScreenState extends State<EntryScreen> {
 
                       _TimeCard(
                         label: _timeLabel,
+                        onTapTime: _pickTime,
                         onMinus: () => _adjustMinutes(-5),
                         onPlus: () => _adjustMinutes(5),
                       ),
@@ -236,15 +340,8 @@ class _EntryScreenState extends State<EntryScreen> {
                       const SizedBox(height: 10),
 
                       if (_loadingSymptoms)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                        )
-                      else
+                        const _SymptomSkeleton()
+                      else ...[
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -257,8 +354,28 @@ class _EntryScreenState extends State<EntryScreen> {
                                   () => _selectedSymptomId = symptom.id,
                                 ),
                               ),
+                            if (!_addingCustom)
+                              _AddSymptomChip(onTap: _startAddingCustom),
                           ],
                         ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.topCenter,
+                          child: _addingCustom
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: _CustomSymptomField(
+                                    controller: _customController,
+                                    focusNode: _customFocus,
+                                    saving: _savingCustom,
+                                    onSubmit: _addCustomSymptom,
+                                    onCancel: _cancelAddingCustom,
+                                  ),
+                                )
+                              : const SizedBox(width: double.infinity),
+                        ),
+                      ],
                       const SizedBox(height: 22),
 
                       Row(
@@ -365,11 +482,13 @@ class _EntryScreenState extends State<EntryScreen> {
 class _TimeCard extends StatelessWidget {
   const _TimeCard({
     required this.label,
+    required this.onTapTime,
     required this.onMinus,
     required this.onPlus,
   });
 
   final String label;
+  final VoidCallback onTapTime;
   final VoidCallback onMinus;
   final VoidCallback onPlus;
 
@@ -389,20 +508,47 @@ class _TimeCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('UHRZEIT', style: theme.textTheme.labelSmall),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: (mono ?? const TextStyle()).copyWith(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface,
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Tooltip(
+                message: 'Genaue Uhrzeit eingeben',
+                child: InkWell(
+                  onTap: onTapTime,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 2, 8, 2),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('UHRZEIT', style: theme.textTheme.labelSmall),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              label,
+                              style: (mono ?? const TextStyle()).copyWith(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w600,
+                                color: theme.colorScheme.onSurface,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: theme.textTheme.labelSmall?.color,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
           Row(
             children: [
@@ -532,6 +678,184 @@ class _SymptomChip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Platzhalter-Chips mit Shimmer, solange die Symptome laden.
+class _SymptomSkeleton extends StatelessWidget {
+  const _SymptomSkeleton();
+
+  // ungefähr die Breiten echter Symptom-Namen, damit es natürlich wirkt
+  static const _widths = [122.0, 84.0, 98.0, 132.0, 88.0, 94.0, 140.0];
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final base = isDark ? const Color(0xFF1E2826) : AppColors.surface2;
+    final highlight = isDark ? const Color(0xFF2C3836) : const Color(0xFFF7F9F7);
+
+    return Shimmer.fromColors(
+      baseColor: base,
+      highlightColor: highlight,
+      period: const Duration(milliseconds: 1300),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final w in _widths)
+            Container(
+              width: w,
+              height: 38,
+              decoration: BoxDecoration(
+                color: Colors.white, // wird vom Shimmer eingefärbt
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "+ eigenes"-Chip mit gestricheltem Rahmen (wie im Mockup).
+class _AddSymptomChip extends StatelessWidget {
+  const _AddSymptomChip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: CustomPaint(
+        painter: _DashedPillPainter(color: AppColors.accent),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          child: Text(
+            '+ eigenes',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AppColors.accent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedPillPainter extends CustomPainter {
+  _DashedPillPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          rect.deflate(0.6),
+          Radius.circular(size.height / 2),
+        ),
+      );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+
+    const dash = 4.0;
+    const gap = 3.0;
+    for (final metric in path.computeMetrics()) {
+      for (double d = 0; d < metric.length; d += dash + gap) {
+        canvas.drawPath(metric.extractPath(d, d + dash), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedPillPainter old) => old.color != color;
+}
+
+/// Eingabefeld für ein eigenes Symptom, erscheint unter den Chips.
+class _CustomSymptomField extends StatelessWidget {
+  const _CustomSymptomField({
+    required this.controller,
+    required this.focusNode,
+    required this.saving,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool saving;
+  final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inkSoft = isDark ? AppColors.inkSoftDark : AppColors.inkSoft;
+
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: !saving,
+            textCapitalization: TextCapitalization.sentences,
+            textInputAction: TextInputAction.done,
+            maxLength: 40,
+            onSubmitted: (_) => onSubmit(),
+            decoration: const InputDecoration(
+              hintText: 'Eigenes Symptom, z.B. Gelenkschmerzen',
+              counterText: '',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: saving ? null : onCancel,
+          icon: const Icon(Icons.close_rounded),
+          color: inkSoft,
+          tooltip: 'Abbrechen',
+        ),
+        SizedBox(
+          width: 40,
+          height: 40,
+          child: Material(
+            color: AppColors.accent,
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: saving ? null : onSubmit,
+              child: saving
+                  ? const Padding(
+                      padding: EdgeInsets.all(11),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
