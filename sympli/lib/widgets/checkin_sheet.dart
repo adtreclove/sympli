@@ -5,7 +5,7 @@ import 'package:sympli/helpers/entry_stats.dart';
 import 'package:sympli/helpers/factor_text.dart';
 import 'package:sympli/models/factor.dart';
 
-/// Öffnet den Check-in für [slot]. Liefert `true`, wenn gespeichert wurde.
+/// Opens daily check in for [slot]. returns `true` if saved
 Future<bool> showCheckInSheet(
   BuildContext context, {
   required FactorSlot slot,
@@ -33,7 +33,7 @@ class CheckInSheet extends StatefulWidget {
 
   final FactorSlot slot;
 
-  /// Nur die Faktoren dieses Slots (bereits gefiltert).
+  /// filtered for factor types of this slot
   final List<FactorType> types;
   final FactorLogs logs;
 
@@ -42,7 +42,7 @@ class CheckInSheet extends StatefulWidget {
 }
 
 class _CheckInSheetState extends State<CheckInSheet> {
-  /// 0 = heute, 1 = gestern
+  /// 0 = today, 1 = yesterday
   int _dayOffset = 0;
   final Map<String, double?> _values = {};
   bool _saving = false;
@@ -58,7 +58,7 @@ class _CheckInSheetState extends State<CheckInSheet> {
     _loadValues();
   }
 
-  /// Vorhandene Werte des Tages laden; sonst sinnvolle Startwerte.
+  /// Load existing values for the day; otherwise use sensible default values.
   void _loadValues() {
     _values.clear();
     for (final f in widget.types) {
@@ -66,12 +66,12 @@ class _CheckInSheetState extends State<CheckInSheet> {
       _values[f.id] =
           existing ??
           switch (f.kind) {
-            // Zahl: letzter bekannter Wert, sonst Standardwert
+            //  last known value, otherwise default value
             FactorKind.number =>
               widget.logs.lastBefore(f.id, _day) ?? f.defaultValue ?? f.min,
-            // Ja/Nein: "nein", bis man etwas anderes wählt
+            // Yes/No: "no", until something else is selected
             FactorKind.boolean => 0.0,
-            // Skala: bewusst leer – kein vorausgefüllter Wert, der verzerrt
+            // Scale: intentionally empty – no pre-filled value that could skew the results
             FactorKind.scale => null,
           };
     }
@@ -148,7 +148,9 @@ class _CheckInSheetState extends State<CheckInSheet> {
                     children: [
                       Expanded(
                         child: Text(
-                          _isMorning ? 'Wie war die Nacht?' : 'Wie war dein Tag?',
+                          _isMorning
+                              ? 'Wie war die Nacht?'
+                              : 'Wie war dein Tag?',
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontSize: 19,
                           ),
@@ -164,10 +166,11 @@ class _CheckInSheetState extends State<CheckInSheet> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      for (final (i, label) in (_isMorning
-                              ? const ['Letzte Nacht', 'Nacht davor']
-                              : const ['Heute', 'Gestern'])
-                          .indexed) ...[
+                      for (final (i, label)
+                          in (_isMorning
+                                  ? const ['Letzte Nacht', 'Nacht davor']
+                                  : const ['Heute', 'Gestern'])
+                              .indexed) ...[
                         if (i > 0) const SizedBox(width: 8),
                         _Pill(
                           label: label,
@@ -244,10 +247,12 @@ class _CheckInSheetState extends State<CheckInSheet> {
   }
 }
 
-// ---------------------------------------------------------------------------
-
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.selected, required this.onTap});
+  const _Pill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final bool selected;
@@ -283,7 +288,6 @@ class _Pill extends StatelessWidget {
   }
 }
 
-/// Zahl mit Plus/Minus, z.B. Schlafdauer in 0,5-Std.-Schritten.
 class _NumberStepper extends StatelessWidget {
   const _NumberStepper({
     required this.factor,
@@ -296,8 +300,11 @@ class _NumberStepper extends StatelessWidget {
   final ValueChanged<double> onChanged;
 
   void _change(int direction) {
-    final next = (value + direction * factor.step).clamp(factor.min, factor.max);
-    // Rundungsfehler bei 0,5-Schritten vermeiden
+    final next = (value + direction * factor.step).clamp(
+      factor.min,
+      factor.max,
+    );
+    // prevents rounding erros
     onChanged(double.parse(next.toStringAsFixed(2)));
   }
 
@@ -393,7 +400,6 @@ class _RoundButton extends StatelessWidget {
   }
 }
 
-/// Skala 1–5 als Knöpfe. Nochmal tippen hebt die Auswahl auf.
 class _ScalePicker extends StatelessWidget {
   const _ScalePicker({
     required this.factor,
@@ -425,8 +431,7 @@ class _ScalePicker extends StatelessWidget {
               if (i > 0) const SizedBox(width: 8),
               Expanded(
                 child: InkWell(
-                  onTap: () =>
-                      onChanged(value == steps[i] ? null : steps[i]),
+                  onTap: () => onChanged(value == steps[i] ? null : steps[i]),
                   borderRadius: BorderRadius.circular(14),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 150),
@@ -470,7 +475,7 @@ class _ScalePicker extends StatelessWidget {
   }
 }
 
-/// Ja/Nein-Zeile, z.B. "Fast Food gegessen?  [Nein | Ja]".
+/// Yes / No row
 class _BoolRow extends StatelessWidget {
   const _BoolRow({
     required this.factor,
@@ -499,7 +504,9 @@ class _BoolRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: selected
-                ? (optionValue ? AppColors.accent : (isDark ? AppColors.surfaceDark : AppColors.surface))
+                ? (optionValue
+                      ? AppColors.accent
+                      : (isDark ? AppColors.surfaceDark : AppColors.surface))
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
           ),

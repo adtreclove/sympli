@@ -10,14 +10,14 @@ String fmtNum(double v, {int decimals = 1}) {
   return s.replaceAll('.', ',');
 }
 
-/// Wert eines Faktors zum Anzeigen, z.B. "7,5 Std.", "3/5", "ja".
+/// e.g. "7,5 Std.", "3/5", "ja"
 String formatFactorValue(FactorType f, double v) => switch (f.kind) {
   FactorKind.boolean => v >= 0.5 ? 'ja' : 'nein',
   FactorKind.scale => '${fmtNum(v)}/${fmtNum(f.max)}',
   FactorKind.number => f.unit == null ? fmtNum(v) : '${fmtNum(v)} ${f.unit}',
 };
 
-/// Beschriftung der Skalen-Enden im Check-in.
+/// label of scala-end in check in
 ({String low, String high}) scaleEndLabels(FactorType f) => switch (f.key) {
   'stress' => (low: 'entspannt', high: 'sehr gestresst'),
   'sleep_quality' => (low: 'schlecht', high: 'erholsam'),
@@ -25,7 +25,7 @@ String formatFactorValue(FactorType f, double v) => switch (f.kind) {
   _ => (low: 'niedrig', high: 'hoch'),
 };
 
-/// Kurze Frage/Beschriftung im Check-in.
+/// Short question / label for check in
 String factorPrompt(FactorType f) => switch (f.key) {
   'sleep_hours' => 'Wie lange hast du geschlafen?',
   'sleep_quality' => 'Wie gut hast du geschlafen?',
@@ -54,24 +54,32 @@ IconData factorIcon(FactorType f) => switch (f.key) {
   _ => Icons.tune_rounded,
 };
 
-/// Bedingung für einen Satz wie "An Tagen {Bedingung} traten …".
-/// [high] = obere Gruppe (Wert > Schwelle bzw. "ja").
+/// Condition for a sentence like "An Tagen {Bedingung} traten …".
+/// [high] = upper group (value > threshold or "yes").
 String factorCondition(FactorType f, {required bool high, double? threshold}) {
   final t = threshold ?? 0.0;
   switch (f.kind) {
     case FactorKind.boolean:
       return switch (f.key) {
-        'pre_period' => high ? 'kurz vor der Periode' : 'außerhalb der Tage vor der Periode',
+        'pre_period' =>
+          high ? 'kurz vor der Periode' : 'außerhalb der Tage vor der Periode',
         _ => high ? 'mit ${f.name}' : 'ohne ${f.name}',
       };
     case FactorKind.scale:
       final (hi, lo) = switch (f.key) {
         'stress' => ('viel Stress', 'wenig Stress'),
-        'sleep_quality' => ('guter Schlafqualität', 'schlechter Schlafqualität'),
+        'sleep_quality' => (
+          'guter Schlafqualität',
+          'schlechter Schlafqualität',
+        ),
         'nutrition' => ('ausgewogener Ernährung', 'ungesunder Ernährung'),
         _ => ('${f.name} über ${fmtNum(t)}', '${f.name} bis ${fmtNum(t)}'),
       };
-      final known = const ['stress', 'sleep_quality', 'nutrition'].contains(f.key);
+      final known = const [
+        'stress',
+        'sleep_quality',
+        'nutrition',
+      ].contains(f.key);
       if (!known) return 'mit ${high ? hi : lo}';
       return high
           ? 'mit $hi (über ${fmtNum(t)})'
@@ -95,7 +103,7 @@ String factorCondition(FactorType f, {required bool high, double? threshold}) {
   }
 }
 
-/// Kurzlabel unter den Mini-Balken, z.B. "> 6,5 Std." oder "mit".
+/// Short label under the mini-bars, e.g., "> 6,5 Std." or "with".
 String factorGroupLabel(FactorType f, {required bool high, double? threshold}) {
   final t = threshold ?? 0.0;
   switch (f.kind) {
@@ -110,7 +118,7 @@ String factorGroupLabel(FactorType f, {required bool high, double? threshold}) {
   }
 }
 
-/// Satzanfang + Bedingung, z.B. "An Tagen mit Fast Food",
+/// sentence start and condition, e.g., "An Tagen mit Fast Food",
 /// "Am Tag nach Alkohol", "Nach Nächten mit höchstens 6 Std. Schlaf".
 String conditionPhrase(
   FactorType f, {

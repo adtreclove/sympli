@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:sympli/controllers/factors_controller.dart';
+import 'package:sympli/controllers/user_settings_controller.dart';
 import 'package:sympli/helpers/app_theme.dart';
 import 'package:sympli/helpers/factor_text.dart';
 import 'package:sympli/models/factor.dart';
 import 'package:sympli/widgets/checkin_sheet.dart';
 
-/// Tages-Check-in: "Wie war die Nacht?" und "Wie war dein Tag?".
+/// Daily Check in. Asks about food, stress level, period (if enabled), movement
 class CheckInCard extends ConsumerWidget {
   const CheckInCard({super.key, required this.now});
 
@@ -22,12 +23,13 @@ class CheckInCard extends ConsumerWidget {
     final settings = ref.watch(userSettingsProvider).value;
 
     Widget body;
+
+    // switch body depending on provider states
     if (typesAsync.hasError || logsAsync.hasError) {
       body = Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'Check-in konnte nicht geladen werden. Ist das Datenbank-Update '
-          '(002_checkin_faktoren.sql) schon ausgeführt?',
+          'Check-in konnte nicht geladen werden.',
           style: theme.textTheme.bodySmall?.copyWith(color: AppColors.coral),
         ),
       );
@@ -145,18 +147,19 @@ class _SlotRow extends StatelessWidget {
     final faint = isDark ? AppColors.inkSoftDark : AppColors.inkFaint;
     final accent = isDark ? AppColors.mittagDark : AppColors.accent;
 
-    // Zusammenfassung der erfassten Werte, z.B. "7,5 Std. · 4/5 · Fast Food"
+    // summary of checked in values
     final parts = <String>[];
-    for (final f in types) {
-      final v = logs.value(f.id, day);
-      if (v == null) continue;
-      if (f.kind == FactorKind.boolean) {
-        if (v >= 0.5) parts.add(f.name);
+    for (final factor in types) {
+      final value = logs.value(factor.id, day);
+      if (value == null) continue;
+      // add name of factor if it's a bool (fast food, alcohol etc)
+      if (factor.kind == FactorKind.boolean) {
+        if (value >= 0.5) parts.add(factor.name);
       } else {
-        parts.add(formatFactorValue(f, v));
+        parts.add(formatFactorValue(factor, value));
       }
     }
-    final done = types.any((f) => logs.value(f.id, day) != null);
+    final done = types.any((factor) => logs.value(factor.id, day) != null);
     final summary = done
         ? (parts.isEmpty ? 'Erfasst' : parts.join(' · '))
         : hint;
@@ -236,6 +239,7 @@ class _RowsSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // reusable bar for shimmer effect
     Widget bar(double w, double h) => Container(
       width: w,
       height: h,
@@ -252,6 +256,7 @@ class _RowsSkeleton extends StatelessWidget {
           : const Color(0xFFF7F9F7),
       child: Column(
         children: [
+          // currently we have two rows (night and day), therefore we show two skeletons
           for (var i = 0; i < 2; i++)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),

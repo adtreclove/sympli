@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sympli/helpers/app_theme.dart';
 
-/// Tagesabschnitte, nach denen Einträge im Tageskreis und in der Liste
-/// eingefärbt werden.
 enum DayPhase {
   morgen('Morgen'),
   mittag('Mittag'),
@@ -12,7 +10,7 @@ enum DayPhase {
   const DayPhase(this.label);
   final String label;
 
-  /// Morgen 05–11, Mittag 11–17, Abend 17–22, Nacht 22–05 Uhr.
+  /// morning 05–11, day 11–17, evening 17–22, night 22–05 Uhr.
   static DayPhase fromTime(DateTime time) {
     final h = time.hour;
     if (h >= 5 && h < 11) return DayPhase.morgen;
@@ -29,7 +27,7 @@ enum DayPhase {
   };
 }
 
-/// Intensität 1–5 → Label + Badge-Farben (wie im Eintrags-Sheet).
+/// intensity 1–5 → Label + Badge colors
 class IntensityStyle {
   const IntensityStyle(this.label, this.foreground, this.background);
 
@@ -40,26 +38,40 @@ class IntensityStyle {
   static IntensityStyle of(int intensity, {required bool isDark}) {
     if (intensity <= 2) {
       return isDark
-          ? IntensityStyle('leicht', AppColors.mittagDark,
-              AppColors.mittagDark.withValues(alpha: 0.14))
+          ? IntensityStyle(
+              'leicht',
+              AppColors.mittagDark,
+              AppColors.mittagDark.withValues(alpha: 0.14),
+            )
           : const IntensityStyle(
-              'leicht', AppColors.accent, AppColors.accentSoft);
+              'leicht',
+              AppColors.accent,
+              AppColors.accentSoft,
+            );
     }
     if (intensity <= 4) {
       return isDark
-          ? IntensityStyle('mittel', AppColors.morgenDark,
-              AppColors.morgenDark.withValues(alpha: 0.16))
+          ? IntensityStyle(
+              'mittel',
+              AppColors.morgenDark,
+              AppColors.morgenDark.withValues(alpha: 0.16),
+            )
           : const IntensityStyle(
-              'mittel', Color(0xFFB86E0B), Color(0xFFFCEBD3));
+              'mittel',
+              Color(0xFFB86E0B),
+              Color(0xFFFCEBD3),
+            );
     }
     return isDark
-        ? IntensityStyle('stark', const Color(0xFFF27A60),
-            const Color(0xFFF27A60).withValues(alpha: 0.16))
+        ? IntensityStyle(
+            'stark',
+            const Color(0xFFF27A60),
+            const Color(0xFFF27A60).withValues(alpha: 0.16),
+          )
         : const IntensityStyle('stark', AppColors.coral, Color(0xFFFBE1DA));
   }
 }
 
-/// Deutsche Datums-/Uhrzeit-Formatierung ohne zusätzliches Paket.
 class DateLabels {
   DateLabels._();
 
@@ -87,12 +99,12 @@ class DateLabels {
     'Dez.',
   ];
 
-  /// z.B. "MONTAG, 21. SEPT."
+  /// e.g "MONTAG, 21. SEPT."
   static String dayHeader(DateTime d) =>
       '${_weekdays[d.weekday - 1]}, ${d.day}. ${_months[d.month - 1]}'
           .toUpperCase();
 
-  /// z.B. "07:15"
+  /// e.g. "07:15"
   static String time(DateTime d) =>
       '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 

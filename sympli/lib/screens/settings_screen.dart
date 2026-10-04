@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:sympli/controllers/factors_controller.dart';
-import 'package:sympli/controllers/today_controller.dart';
+import 'package:sympli/controllers/theme_controller.dart';
+import 'package:sympli/controllers/user_settings_controller.dart';
 import 'package:sympli/helpers/app_theme.dart';
 import 'package:sympli/models/factor.dart';
 import 'package:sympli/services/weather_service.dart';
@@ -59,11 +59,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await ref.read(userSettingsProvider.notifier).save(settings);
     } catch (_) {
-      setState(
-        () => _error =
-            'Einstellung konnte nicht gespeichert werden. Ist das '
-            'Datenbank-Update schon ausgeführt?',
-      );
+      setState(() => _error = 'Einstellung konnte nicht gespeichert werden.');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -125,7 +121,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(height: 12),
                       ],
 
-                      // --- Zyklus -------------------------------------------
+                      // Female cycle
                       _SectionLabel('ZYKLUS'),
                       _Card(
                         child: Column(
@@ -165,7 +161,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(height: 22),
 
-                      // --- Wetter -------------------------------------------
+                      // Weather
                       _SectionLabel('WETTER'),
                       _Card(
                         child: Column(
@@ -268,7 +264,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       const SizedBox(height: 22),
 
-                      // --- Darstellung --------------------------------------
+                      // Display
                       _SectionLabel('DARSTELLUNG'),
                       _Card(
                         child: SegmentedButton<ThemeMode>(
@@ -288,14 +284,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ],
                           selected: {themeMode},
-                          onSelectionChanged: (s) => ref
-                              .read(themeModeProvider.notifier)
-                              .set(s.first),
+                          onSelectionChanged: (s) =>
+                              ref.read(themeModeProvider.notifier).set(s.first),
                         ),
                       ),
                       const SizedBox(height: 22),
 
-                      // --- Konto --------------------------------------------
+                      // User account
                       _SectionLabel('KONTO'),
                       _Card(
                         child: Row(
@@ -339,9 +334,8 @@ class _SectionLabel extends StatelessWidget {
     padding: const EdgeInsets.only(left: 4, bottom: 8),
     child: Text(
       text,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        letterSpacing: 0.9,
-      ),
+      style: Theme.of(context).textTheme.labelSmall
+          ?.copyWith(letterSpacing: 0.9),
     ),
   );
 }

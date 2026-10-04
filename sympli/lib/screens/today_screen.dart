@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:sympli/controllers/theme_controller.dart';
 import 'package:sympli/controllers/today_controller.dart';
 import 'package:sympli/helpers/app_theme.dart';
 import 'package:sympli/helpers/day_phase.dart';
@@ -57,7 +58,12 @@ class _TodayScreenState extends ConsumerState<TodayScreen> {
   String? _firstName() {
     final meta = Supabase.instance.client.auth.currentUser?.userMetadata;
     if (meta == null) return null;
-    for (final key in const ['first_name', 'name', 'full_name', 'display_name']) {
+    for (final key in const [
+      'first_name',
+      'name',
+      'full_name',
+      'display_name',
+    ]) {
       final value = meta[key];
       if (value is String && value.trim().isNotEmpty) {
         return value.trim().split(' ').first;
@@ -178,9 +184,8 @@ class _Header extends ConsumerWidget {
         _CircleButton(
           icon: Icons.contrast_rounded,
           tooltip: 'Hell / Dunkel',
-          onTap: () => ref
-              .read(themeModeProvider.notifier)
-              .toggle(theme.brightness),
+          onTap: () =>
+              ref.read(themeModeProvider.notifier).toggle(theme.brightness),
         ),
       ],
     );
@@ -205,25 +210,25 @@ class _CircleButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: Material(
-      color: isDark ? AppColors.surfaceDark : AppColors.surface,
-      shape: CircleBorder(
-        side: BorderSide(
-          color: isDark ? AppColors.borderDark : AppColors.border,
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: Icon(
-            icon,
-            size: 20,
-            color: isDark ? AppColors.inkDark : AppColors.ink,
+        color: isDark ? AppColors.surfaceDark : AppColors.surface,
+        shape: CircleBorder(
+          side: BorderSide(
+            color: isDark ? AppColors.borderDark : AppColors.border,
           ),
         ),
-      ),
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(
+              icon,
+              size: 20,
+              color: isDark ? AppColors.inkDark : AppColors.ink,
+            ),
+          ),
+        ),
       ),
     );
   }

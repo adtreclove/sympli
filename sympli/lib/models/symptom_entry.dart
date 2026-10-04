@@ -1,5 +1,3 @@
-/// Ein erfasster Symptom-Eintrag, wie er aus der `entries`-Tabelle
-/// (inkl. verknüpftem Symptom-Namen) geladen wird.
 class SymptomEntry {
   const SymptomEntry({
     required this.id,
@@ -14,10 +12,10 @@ class SymptomEntry {
   final String symptomId;
   final String symptomName;
 
-  /// Immer in lokaler Zeit.
+  /// always local time
   final DateTime occurredAt;
 
-  /// 1 (leicht) bis 5 (stark).
+  /// 1 light, 5 strong
   final int intensity;
   final String? note;
 

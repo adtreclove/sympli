@@ -1,12 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sympli/models/symptom_entry.dart';
 
-/// Alle Einträge des heutigen (lokalen) Tages, aufsteigend nach Uhrzeit.
-///
-/// Nach dem Speichern eines neuen Eintrags wird der Provider in der
-/// AppShell per `ref.invalidate(todayEntriesProvider)` neu geladen.
+/// All today's entries, ascending by time
 final todayEntriesProvider = FutureProvider<List<SymptomEntry>>((ref) async {
   final client = Supabase.instance.client;
   final now = DateTime.now();
@@ -22,21 +18,3 @@ final todayEntriesProvider = FutureProvider<List<SymptomEntry>>((ref) async {
 
   return rows.map<SymptomEntry>(SymptomEntry.fromMap).toList();
 });
-
-/// Hell/Dunkel-Umschalter oben rechts im Tages-Screen.
-/// Startet mit der Geräte-Einstellung.
-class ThemeModeNotifier extends Notifier<ThemeMode> {
-  @override
-  ThemeMode build() => ThemeMode.system;
-
-  /// Wechselt ausgehend von der aktuell *sichtbaren* Helligkeit.
-  void toggle(Brightness current) {
-    state = current == Brightness.dark ? ThemeMode.light : ThemeMode.dark;
-  }
-
-  void set(ThemeMode mode) => state = mode;
-}
-
-final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
-  ThemeModeNotifier.new,
-);

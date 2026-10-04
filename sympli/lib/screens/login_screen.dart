@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sympli/helpers/app_theme.dart';
 
+// designed for mobile screen right now
+// responsive and working on web, but not pretty yet
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -44,8 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
           password: password,
         );
         if (mounted && Supabase.instance.client.auth.currentSession == null) {
-          // Je nach Supabase-Projekteinstellung ist E-Mail-Bestätigung
-          // aktiv: dann gibt es nach signUp noch keine Session.
+          // if supabase setting for email confirmation is enabled
           setState(() {
             _errorMessage = 'Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir geschickt haben.';
           });
@@ -56,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
           password: password,
         );
       }
-      // Erfolg: der Auth-Stream übernimmt die Navigation über den Router.
+      // navigation through auth stream in nav service
     } on AuthException catch (e) {
       setState(() => _errorMessage = _readableError(e));
     } catch (_) {
@@ -95,7 +97,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const SizedBox(height: 24),
 
-                  // Wordmark
                   Container(
                     width: 56,
                     height: 56,
@@ -157,6 +158,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     validator: (value) {
+                      // todo better validation (special chars, number etc)
                       if (value == null || value.length < 6) {
                         return 'Mindestens 6 Zeichen.';
                       }
@@ -205,6 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 12),
 
+                  // NOTE: Register is temporarily disabled bc i don't want new users currently in test phase
                   // TextButton(
                   //   onPressed: _isLoading
                   //       ? null

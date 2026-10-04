@@ -30,7 +30,6 @@ class FactorSeries {
   final Map<DateTime, double> values;
 }
 
-// ---------------------------------------------------------------------------
 // Ergebnis-Typen
 
 enum ChangeKind { more, less, newSymptom, stronger, milder }
@@ -221,7 +220,8 @@ InsightReport buildInsightReport({
   for (final t in types) {
     if (t.requiresCycle && !trackCycle) continue;
     final values = logsByTypeId[t.id];
-    if (values != null && values.isNotEmpty) series.add(FactorSeries(t, values));
+    if (values != null && values.isNotEmpty)
+      series.add(FactorSeries(t, values));
   }
   var hasWeather = false;
   for (final w in VirtualFactors.weather) {
@@ -267,7 +267,13 @@ InsightReport buildInsightReport({
   final associations = observed.length < minObservedDays
       ? <Association>[]
       : _findAssociations(observed, symptomDays, names, series);
-  final changes = _detectChanges(today, observed, entries, series, associations);
+  final changes = _detectChanges(
+    today,
+    observed,
+    entries,
+    series,
+    associations,
+  );
 
   return InsightReport(
     observedDays: observed.length,
@@ -328,7 +334,8 @@ List<Association> _findAssociations(
     for (final fs in series) {
       final isBool = fs.type.kind == FactorKind.boolean;
       // Abend-Faktoren & Wetter können auch am nächsten Tag wirken.
-      final lags = fs.type.slot == FactorSlot.morning ||
+      final lags =
+          fs.type.slot == FactorSlot.morning ||
               fs.type.key == 'pre_period' ||
               fs.type.key == 'period'
           ? const [0]

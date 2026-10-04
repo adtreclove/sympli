@@ -5,9 +5,9 @@ import 'package:sympli/helpers/app_theme.dart';
 import 'package:sympli/helpers/day_phase.dart';
 import 'package:sympli/models/symptom_entry.dart';
 
-/// 24-Stunden-Zifferblatt: 00 oben, 06 rechts, 12 unten, 18 links.
-/// Jeder Eintrag ist ein Punkt auf dem Ring (Farbe = Tagesabschnitt,
-/// Größe = Intensität), die gepunktete Linie zeigt die aktuelle Uhrzeit.
+/// 24-hour clock face: 00 at the top, 06 on the right, 12 at the bottom, 18 on the left.
+/// Each entry is a point on the ring (color = time of day,
+/// size = intensity), and the dotted line indicates the current time.
 class DayClock extends StatelessWidget {
   const DayClock({
     super.key,
@@ -85,7 +85,7 @@ class _DayClockPainter extends CustomPainter {
   final bool isDark;
   final TextStyle labelStyle;
 
-  /// Winkel für eine Uhrzeit: 00 Uhr oben, im Uhrzeigersinn.
+  /// angle for a time: 00 Uhr oben, clockwise
   static double _angleFor(DateTime t) {
     final hours = t.hour + t.minute / 60 + t.second / 3600;
     return -math.pi / 2 + hours / 24 * 2 * math.pi;
@@ -116,7 +116,7 @@ class _DayClockPainter extends CustomPainter {
         ..color = ringColor,
     );
 
-    // Striche: lang bei 00/06/12/18, kurz bei 03/09/15/21
+    // lines: long at 00/06/12/18, short at 03/09/15/21
     final tickPaint = Paint()
       ..color = tickColor
       ..strokeCap = StrokeCap.round;
@@ -131,7 +131,7 @@ class _DayClockPainter extends CustomPainter {
       );
     }
 
-    // Beschriftung außen
+    // text outside
     for (final h in const [0, 6, 12, 18]) {
       final a = -math.pi / 2 + h / 24 * 2 * math.pi;
       final tp = TextPainter(
@@ -142,7 +142,7 @@ class _DayClockPainter extends CustomPainter {
       tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
     }
 
-    // Jetzt-Zeiger: gepunktete Linie von der Mitte bis zum Ring
+    // Now pointer (dotted line)
     final nowAngle = _angleFor(now);
     final nowPoint = _point(center, radius, nowAngle);
     final dotPaint = Paint()..color = ink.withValues(alpha: 0.7);
@@ -152,7 +152,7 @@ class _DayClockPainter extends CustomPainter {
     }
     canvas.drawCircle(nowPoint, 3, Paint()..color = ink);
 
-    // Einträge
+    // Entries
     for (final e in entries) {
       final p = _point(center, radius, _angleFor(e.occurredAt));
       final r = 3.8 + e.intensity.clamp(1, 5) * 0.55;

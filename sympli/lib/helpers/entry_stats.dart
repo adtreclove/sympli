@@ -2,22 +2,22 @@ import 'dart:math' as math;
 
 import 'package:sympli/models/symptom_entry.dart';
 
-/// Tag ohne Uhrzeit (lokal) – Schlüssel zum Gruppieren nach Tagen.
+/// Day without time – key for grouping by day
 DateTime dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
 
-/// Kalendertage addieren (auch über die Zeitumstellung hinweg korrekt –
-/// `subtract(Duration(days: n))` würde dort um eine Stunde verrutschen).
+/// Add calendar days (also correct over daylight saving time changes –
+/// `subtract(Duration(days: n))` would shift there by one hour).
 DateTime addDays(DateTime d, int days) =>
     DateTime(d.year, d.month, d.day + days);
 
-/// Anzahl Kalendertage von [from] bis [to].
+/// Number of calendar days from [from] to [to].
 int daysBetween(DateTime from, DateTime to) => DateTime.utc(
   to.year,
   to.month,
   to.day,
 ).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
 
-/// Einträge der letzten [days] Tage inkl. heute.
+/// Entries from the last [days] days including today.
 List<SymptomEntry> entriesInLastDays(
   List<SymptomEntry> entries,
   int days, {
@@ -39,7 +39,7 @@ class SymptomRef {
   int get hashCode => id.hashCode;
 }
 
-/// Symptome nach Häufigkeit sortiert (häufigstes zuerst).
+/// symptoms sorted by frequency (most frequent first)
 List<SymptomRef> symptomsByFrequency(List<SymptomEntry> entries) {
   final counts = <String, int>{};
   final names = <String, String>{};
@@ -61,8 +61,8 @@ double? averageIntensity(List<SymptomEntry> entries) {
   return sum / entries.length;
 }
 
-/// Einträge pro Tag für die letzten [days] Tage, ältester Tag zuerst.
-/// Mit [symptomId] nur dieses Symptom.
+/// Entries per day for the last [days] days, oldest day first.
+/// With [symptomId] only this symptom.
 List<int> dailyCounts(
   List<SymptomEntry> entries,
   int days, {
@@ -79,7 +79,7 @@ List<int> dailyCounts(
   return counts;
 }
 
-/// Einträge pro Wochentag, Index 0 = Montag.
+/// Entries per weekday, index 0 = Monday
 List<int> weekdayCounts(List<SymptomEntry> entries) {
   final counts = List<int>.filled(7, 0);
   for (final e in entries) {
@@ -88,7 +88,7 @@ List<int> weekdayCounts(List<SymptomEntry> entries) {
   return counts;
 }
 
-/// "2026-09-27" – Format für `date`-Spalten.
+/// "2026-09-27" – Format for `date` columns.
 String isoDate(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-'
     '${d.month.toString().padLeft(2, '0')}-'
@@ -113,7 +113,6 @@ double median(List<double> values) {
       : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-/// Stichproben-Standardabweichung.
 double stdDev(List<double> values) {
   if (values.length < 2) return 0;
   final m = mean(values);

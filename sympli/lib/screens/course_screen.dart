@@ -5,8 +5,10 @@ import 'package:sympli/helpers/app_theme.dart';
 import 'package:sympli/helpers/day_phase.dart';
 import 'package:sympli/helpers/entry_stats.dart';
 import 'package:sympli/models/symptom_entry.dart';
+import 'package:sympli/widgets/course_sheets.dart';
 
-/// Verlauf: Einträge der letzten 7 bzw. 30 Tage als Zeitachse pro Tag.
+/// Course: Entries in the last 7 or 30 days, with summary and timeline.
+/// The summary can be filtered to a single symptom and exported.
 class CourseScreen extends ConsumerStatefulWidget {
   const CourseScreen({super.key});
 
@@ -17,12 +19,42 @@ class CourseScreen extends ConsumerStatefulWidget {
 class _CourseScreenState extends ConsumerState<CourseScreen> {
   int _days = 7;
 
+  /// Active symptom filter. null = all symptoms.
+  String? _symptomId;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final async = ref.watch(recentEntriesProvider);
     final all = async.value ?? const <SymptomEntry>[];
-    final entries = entriesInLastDays(all, _days);
+    final inRange = entriesInLastDays(all, _days);
+
+    // Options for the filter: symptoms of the current range by frequency.
+    final symptoms = symptomsByFrequency(inRange);
+    final counts = <String, int>{};
+    for (final e in inRange) {
+      counts[e.symptomId] = (counts[e.symptomId] ?? 0) + 1;
+    }
+
+    // Resolve the active filter. It stays active when switching to a range
+    // without entries for it (shown with 0); it is only dropped if the
+    // symptom no longer exists in the loaded data at all.
+    SymptomRef? filter;
+    if (_symptomId != null) {
+      for (final e in all) {
+        if (e.symptomId == _symptomId) {
+          filter = SymptomRef(e.symptomId, e.symptomName);
+          break;
+        }
+      }
+      if (filter != null && !symptoms.contains(filter)) {
+        symptoms.add(filter);
+      }
+    }
+
+    final entries = filter == null
+        ? inRange
+        : inRange.where((e) => e.symptomId == filter!.id).toList();
 
     return SafeArea(
       bottom: false,
@@ -70,9 +102,24 @@ class _CourseScreenState extends ConsumerState<CourseScreen> {
                     onRetry: () => ref.invalidate(recentEntriesProvider),
                   )
                 else ...[
-                  _SummaryCard(entries: entries),
+                  _SummaryCard(
+                    entries: entries,
+                    symptoms: symptoms,
+                    counts: counts,
+                    filter: filter,
+                    onFilterChanged: (s) => setState(() => _symptomId = s?.id),
+                  ),
                   const SizedBox(height: 18),
                   _Timeline(entries: entries, days: _days),
+                  const SizedBox(height: 26),
+                  _ExportButton(
+                    onPressed: () => showExportSheet(
+                      context,
+                      allEntries: all,
+                      initialDays: _days,
+                      filter: filter,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -82,8 +129,6 @@ class _CourseScreenState extends ConsumerState<CourseScreen> {
     );
   }
 }
-
-// ---------------------------------------------------------------------------
 
 class _RangeToggle extends StatelessWidget {
   const _RangeToggle({required this.value, required this.onChanged});
@@ -167,19 +212,31 @@ class _ToggleOption extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.entries});
+  const _SummaryCard({
+    required this.entries,
+    required this.symptoms,
+    required this.counts,
+    required this.filter,
+    required this.onFilterChanged,
+  });
 
+  /// Entries of the range, already filtered if a filter is active.
   final List<SymptomEntry> entries;
+
+  /// Selectable symptoms, most frequent first.
+  final List<SymptomRef> symptoms;
+
+  /// Number of entries per symptom id in the range (unfiltered).
+  final Map<String, int> counts;
+  final SymptomRef? filter;
+  final ValueChanged<SymptomRef?> onFilterChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final border = isDark ? AppColors.borderDark : AppColors.border;
-    final top = symptomsByFrequency(entries);
     final avg = averageIntensity(entries);
     final big = theme.textTheme.headlineSmall?.copyWith(fontSize: 21);
 
@@ -209,21 +266,26 @@ class _SummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : AppColors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: border),
+        border: Border.all(color: filter == null ? border : AppColors.accent),
       ),
       child: Row(
         children: [
           stat('${entries.length}', 'Einträge'),
           divider(),
           Expanded(
-            child: stat(
-              top.isEmpty ? '–' : top.first.name,
-              'häufigstes Symptom',
+            child: _SymptomFilter(
+              symptoms: symptoms,
+              counts: counts,
+              filter: filter,
+              onChanged: onFilterChanged,
+              valueStyle: big,
             ),
           ),
           divider(),
           stat(
-            avg == null ? '–' : '${avg.toStringAsFixed(1).replaceAll('.', ',')} ø',
+            avg == null
+                ? '–'
+                : '${avg.toStringAsFixed(1).replaceAll('.', ',')} ø',
             'Intensität',
             color: avg == null ? null : AppColors.coral,
           ),
@@ -233,7 +295,137 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
+/// Middle stat of the summary: shows the most frequent symptom, and opens a
+/// menu to filter the whole course to one symptom.
+class _SymptomFilter extends StatelessWidget {
+  const _SymptomFilter({
+    required this.symptoms,
+    required this.counts,
+    required this.filter,
+    required this.onChanged,
+    required this.valueStyle,
+  });
+
+  final List<SymptomRef> symptoms;
+  final Map<String, int> counts;
+  final SymptomRef? filter;
+  final ValueChanged<SymptomRef?> onChanged;
+  final TextStyle? valueStyle;
+
+  /// Menu value for "all symptoms" (PopupMenuButton ignores null values).
+  static const _all = SymptomRef('', 'Alle Symptome');
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final accent = isDark ? AppColors.mittagDark : AppColors.accent;
+    final faint = isDark ? AppColors.inkSoftDark : AppColors.inkFaint;
+    final active = filter != null;
+
+    final value = filter?.name ?? (symptoms.isEmpty ? '–' : symptoms.first.name);
+    final label = active ? 'gefiltert' : 'häufigstes Symptom';
+
+    return Row(
+      children: [
+        Expanded(
+          child: PopupMenuButton<SymptomRef>(
+            tooltip: 'Nach Symptom filtern',
+            enabled: symptoms.isNotEmpty,
+            position: PopupMenuPosition.under,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onSelected: (s) => onChanged(s.id.isEmpty ? null : s),
+            itemBuilder: (_) => [
+              _menuItem(_all, null, selected: !active),
+              const PopupMenuDivider(),
+              for (final s in symptoms)
+                _menuItem(s, counts[s.id] ?? 0, selected: s == filter),
+            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: valueStyle?.copyWith(color: active ? accent : null),
+                ),
+                const SizedBox(height: 1),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 11,
+                          color: active ? accent : null,
+                          fontWeight: active ? FontWeight.w600 : null,
+                        ),
+                      ),
+                    ),
+                    if (symptoms.isNotEmpty)
+                      Icon(
+                        Icons.expand_more_rounded,
+                        size: 15,
+                        color: active ? accent : faint,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Quick reset of the filter
+        if (active)
+          IconButton(
+            tooltip: 'Filter entfernen',
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            icon: Icon(Icons.close_rounded, size: 18, color: faint),
+            onPressed: () => onChanged(null),
+          ),
+      ],
+    );
+  }
+
+  PopupMenuItem<SymptomRef> _menuItem(
+    SymptomRef s,
+    int? count, {
+    required bool selected,
+  }) {
+    return PopupMenuItem(
+      value: s,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              s.name,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ),
+          if (count != null) ...[
+            const SizedBox(width: 12),
+            Text(
+              '$count×',
+              style: const TextStyle(fontSize: 12, color: AppColors.inkFaint),
+            ),
+          ],
+          if (selected) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.check_rounded, size: 16, color: AppColors.accent),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _Timeline extends StatelessWidget {
   const _Timeline({required this.entries, required this.days});
@@ -289,9 +481,7 @@ class _Timeline extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Expanded(
-                      child: _DayTrack(entries: byDay[day] ?? const []),
-                    ),
+                    Expanded(child: _DayTrack(entries: byDay[day] ?? const [])),
                   ],
                 ),
               );
@@ -335,13 +525,16 @@ class _Timeline extends StatelessWidget {
   }
 }
 
-/// Eine Tageszeile: dünne Linie, Einträge als Punkte an ihrer Uhrzeit.
 class _DayTrack extends StatelessWidget {
   const _DayTrack({required this.entries});
 
   final List<SymptomEntry> entries;
 
   static const edgePadding = 8.0;
+
+  /// Extra transparent area around each circle so it is easy to hit
+  /// with a finger on touch devices.
+  static const _hitSlop = 6.0;
 
   @override
   Widget build(BuildContext context) {
@@ -369,20 +562,38 @@ class _DayTrack extends StatelessWidget {
                     final t = e.occurredAt;
                     final x = w * (t.hour + t.minute / 60) / 24;
                     final d = 9.0 + e.intensity.clamp(1, 5) * 1.3;
-                    final style =
-                        IntensityStyle.of(e.intensity, isDark: isDark);
+                    final style = IntensityStyle.of(
+                      e.intensity,
+                      isDark: isDark,
+                    );
                     return Positioned(
-                      left: x - d / 2 - 2,
+                      left: x - d / 2 - 2 - _hitSlop,
+                      // Tooltip = hover info on desktop/web,
+                      // tap = details sheet (works on smartphones too).
                       child: Tooltip(
                         message:
                             '${e.symptomName} · ${DateLabels.time(t)} · ${style.label}',
-                        child: Container(
-                          width: d + 4,
-                          height: d + 4,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: DayPhase.fromTime(t).color(isDark),
-                            border: Border.all(color: surface, width: 2),
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => showEntryDetailsSheet(
+                              context,
+                              entry: e,
+                              dayEntries: entries,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(_hitSlop),
+                              child: Container(
+                                width: d + 4,
+                                height: d + 4,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: DayPhase.fromTime(t).color(isDark),
+                                  border: Border.all(color: surface, width: 2),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -392,6 +603,33 @@ class _DayTrack extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Opens the export sheet (download of the summary).
+class _ExportButton extends StatelessWidget {
+  const _ExportButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fg = isDark ? AppColors.mittagDark : AppColors.accent;
+
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(Icons.file_download_outlined, size: 20),
+      label: const Text('Zusammenfassung exportieren'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: fg,
+        minimumSize: const Size.fromHeight(48),
+        side: BorderSide(color: isDark ? AppColors.borderDark : AppColors.border),
+        backgroundColor: isDark ? AppColors.surfaceDark : AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
     );
   }

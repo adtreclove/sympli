@@ -1,7 +1,7 @@
 name: sympli
 description: "A new Flutter project."
 publish_to: "none"
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ^3.13.4
@@ -9,18 +9,20 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^3.4.3
-  go_router: ^18.0.1
+  flutter_riverpod: 3.4.3
+  go_router: 18.0.1
 
-  google_fonts: ^8.2.1
-  http: ^1.2.2
-  shimmer: ^3.0.0
-  supabase_flutter: ^2.17.2
+  google_fonts: 8.2.1
+  http: 1.2.2
+  shimmer: 3.0.0
+  supabase_flutter: 2.17.2
+  # browser APIs (file download in the course export)
+  web: 1.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^6.0.0
+  flutter_lints: 6.0.0
 
 flutter:
   uses-material-design: true

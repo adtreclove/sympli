@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:sympli/controllers/today_controller.dart';
+import 'package:sympli/controllers/theme_controller.dart';
 import 'package:sympli/helpers/app_theme.dart';
 import 'package:sympli/services/navigation_service.dart';
 
@@ -25,7 +25,6 @@ class MainApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      // folgt der Geräte-Einstellung, bis man oben rechts umschaltet
       themeMode: ref.watch(themeModeProvider),
       routerConfig: router,
     );
